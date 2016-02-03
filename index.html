@@ -1,0 +1,43 @@
+<script>
+	var LodePNG = {};
+	LodePNG.requestId = 0;
+	LodePNG.callbacks = {};
+	LodePNG.worker = new Worker('lodepng_worker.js');
+	LodePNG.worker.onmessage = function(ev) {
+		var requestId = ev.data.requestId;
+		var callback = LodePNG.callbacks[requestId];
+		delete LodePNG.callbacks[requestId];
+
+		callback(ev.data.image, ev.data.png);
+	};
+	LodePNG.decode = function(pngBuffer, callback) {
+		var requestId = this.requestId++;
+		this.callbacks[requestId] = callback;
+		this.worker.postMessage({ png: pngBuffer, requestId: requestId }, [pngBuffer]);
+	};
+
+	var xhr = new XMLHttpRequest();
+	xhr.responseType = 'arraybuffer';
+
+	xhr.onload = function() {
+
+		LodePNG.decode(xhr.response, function(image, pngBuffer) {
+
+			var canvas = document.createElement('canvas');
+			canvas.width = image.width;
+			canvas.height = image.height;
+
+			var ctx = canvas.getContext('2d');
+			var id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+			id.data.set(image.data);
+			ctx.putImageData(id, 0, 0);
+
+			document.body.appendChild(canvas);
+
+		});
+	};
+
+	xhr.open('GET', 'image.png');
+	xhr.send(null);
+
+</script>
